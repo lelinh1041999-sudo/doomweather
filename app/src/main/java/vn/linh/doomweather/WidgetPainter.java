@@ -23,7 +23,7 @@ import org.json.JSONObject;
 
 final class WidgetPainter {
     static final int BLUE = -10169601;
-    private static final int MAX_PIXELS = 165000;
+    private static final int MAX_PIXELS = 260000;
     static final int SNOW = -4528387;
     static final int STORM = -340971;
     static final int WHITE = -1;
@@ -316,7 +316,8 @@ final class WidgetPainter {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(i);
         paint.setTextSize(f3);
-        paint.setTypeface(Typeface.create("sans-serif", z ? Typeface.BOLD : Typeface.NORMAL));
+        paint.setLetterSpacing(z ? -0.015f : -0.005f);
+        paint.setTypeface(Typeface.create(z ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
         canvas.drawText(str, f, f2, paint);
     }
 
@@ -324,24 +325,29 @@ final class WidgetPainter {
         p.setStyle(Paint.Style.FILL);
         p.setColor(color);
         p.setTextSize(size);
+        p.setLetterSpacing(-0.05f);
         p.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         c.drawText(s, x, y, p);
+        p.setLetterSpacing(0.0f);
     }
 
     static void centerText(Canvas canvas, Paint paint, String str, float f, float f2, float f3, int i, boolean z) {
-        paint.setTypeface(Typeface.create("sans-serif", z ? Typeface.BOLD : Typeface.NORMAL));
+        paint.setTypeface(Typeface.create(z ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
+        paint.setLetterSpacing(z ? -0.01f : 0.0f);
         paint.setTextSize(f3);
         text(canvas, paint, str, f - (paint.measureText(str) / 2.0f), f2, f3, i, z);
     }
 
     static void right(Canvas c, Paint p, String s, float x, float y, float size, int color) {
-        p.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        p.setLetterSpacing(-0.01f);
         p.setTextSize(size);
-        text(c, p, s, x - p.measureText(s), y, size, color, false);
+        text(c, p, s, x - p.measureText(s), y, size, color, true);
     }
 
     static String ellipsize(String s, Paint p, float size, float max) {
-        p.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+        p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        p.setLetterSpacing(-0.015f);
         p.setTextSize(size);
         if (p.measureText(s) <= max) {
             return s;
