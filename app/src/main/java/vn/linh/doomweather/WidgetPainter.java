@@ -249,17 +249,20 @@ final class WidgetPainter {
             text(canvas, p, offline ? "Không tải được thời tiết. Chạm để thử lại." : "Đang tải thời tiết…",
                 18.0f, 150.0f, 12.5f, 0xE0FFFFFF, false);
         } else {
-            String tempStr = Math.round(cur.optDouble("temperature_2m")) + "°";
+            String numStr = String.valueOf(Math.round(cur.optDouble("temperature_2m")));
+            String tempStr = numStr + "°";
             Rect tempBounds = new Rect();
+            Rect numBounds = new Rect();
             p.setTextSize(46.0f);
             p.setLetterSpacing(-0.05f);
             p.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
             p.getTextBounds(tempStr, 0, tempStr.length(), tempBounds);
+            p.getTextBounds(numStr, 0, numStr.length(), numBounds);
 
             float leftEdge = 18.0f;
             float cityVisualLeft = leftEdge;
-            if (cityBounds.width() < tempBounds.width()) {
-                cityVisualLeft = leftEdge + (tempBounds.width() - cityBounds.width()) / 2.0f;
+            if (cityBounds.width() < numBounds.width()) {
+                cityVisualLeft = leftEdge + (numBounds.width() - cityBounds.width()) / 2.0f;
             }
             text(canvas, p, city, cityVisualLeft - cityBounds.left, 36.0f, 18.5f, WHITE, true);
             textThin(canvas, p, tempStr, leftEdge - tempBounds.left, 80.0f, 46.0f, WHITE);
