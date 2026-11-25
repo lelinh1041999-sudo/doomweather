@@ -8,123 +8,175 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.RemoteViews;
+import org.json.JSONObject;
 
-/* loaded from: classes3.dex */
 public class WeatherWidget extends AppWidgetProvider {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     static final String REFRESH = "vn.linh.doomweather.REFRESH";
     static final String TEST_NOTIF = "vn.linh.doomweather.TEST_NOTIF";
+    static final String NEXT_THEME = "vn.linh.doomweather.NEXT_THEME";
+    static final String EXTRA_THEME = "theme";
 
-    @Override // android.appwidget.AppWidgetProvider, android.content.BroadcastReceiver
+    @Override
     public void onReceive(Context c, Intent intent) {
-        if (REFRESH.equals(intent.getAction())) {
+        String action = intent == null ? null : intent.getAction();
+        if (REFRESH.equals(action)) {
             refreshAsync(c);
-        } else if (TEST_NOTIF.equals(intent.getAction())) {
+        } else if (TEST_NOTIF.equals(action)) {
             WeatherNotifier.sendSummaryNow(c.getApplicationContext());
+        } else if (NEXT_THEME.equals(action)) {
+            int widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                Context app = c.getApplicationContext();
+                AppWidgetManager manager = AppWidgetManager.getInstance(app);
+                int[] allIds = manager.getAppWidgetIds(new ComponentName(app, WeatherWidget.class));
+                boolean syncGlobal = allIds == null || allIds.length <= 1;
+                Store.cycleWidgetTheme(app, widgetId, syncGlobal);
+                renderOne(app, manager, widgetId);
+            } else {
+                render(c.getApplicationContext());
+            }
         } else {
             super.onReceive(c, intent);
         }
     }
 
-    @Override // android.appwidget.AppWidgetProvider
+    @Override
     public void onUpdate(Context c, AppWidgetManager manager, int[] ids) {
         refreshAsync(c);
     }
 
-    @Override // android.appwidget.AppWidgetProvider
+    @Override
     public void onAppWidgetOptionsChanged(Context c, AppWidgetManager m, int id, Bundle options) {
-        render(c);
+        renderOne(c.getApplicationContext(), m, id);
+    }
+
+    @Override
+    public void onDeleted(Context c, int[] appWidgetIds) {
+        if (appWidgetIds != null) {
+            for (int id : appWidgetIds) {
+                Store.clearWidgetTheme(c, id);
+            }
+        }
+        super.onDeleted(c, appWidgetIds);
     }
 
     private void refreshAsync(Context c) {
         final Context app = c.getApplicationContext();
         render(app);
         final BroadcastReceiver.PendingResult pending = goAsync();
-        new Thread(new Runnable() { // from class: vn.linh.doomweather.WeatherWidget$$ExternalSyntheticLambda2
-            @Override // java.lang.Runnable
-            public final void run() {
-                WeatherWidget.lambda$refreshAsync$1(app, pending);
+        new Thread(() -> {
+            try {
+                JSONObject loc = Store.location(app);
+                if (loc.optBoolean("gps", false) || "Vị trí của tôi".equals(loc.optString("name"))) {
+                    Location fresh = WeatherClient.bestKnownLocation(app);
+                    if (fresh != null && WeatherMath.validLocation(fresh.getLatitude(), fresh.getLongitude())) {
+                        float[] dist = new float[1];
+                        Location.distanceBetween(
+                            loc.optDouble("lat"), loc.optDouble("lon"),
+                            fresh.getLatitude(), fresh.getLongitude(),
+                            dist
+                        );
+                        if (dist[0] > 250.0f) {
+                            String resolved = WeatherClient.reverseGeocode(app, fresh.getLatitude(), fresh.getLongitude());
+                            String name = (resolved == null || resolved.isEmpty()) ? loc.optString("name", "Vị trí của tôi") : resolved;
+                            Store.setLocation(app, name, fresh.getLatitude(), fresh.getLongitude(), true);
+                            loc = Store.location(app);
+                        }
+                    }
+                }
+                JSONObject data = WeatherClient.fetch(loc);
+                if (Store.saveWeather(app, loc, data)) {
+                    WeatherNotifier.maybeNotify(app, loc, data);
+                }
+            } catch (Exception e) {
+                Log.w("DoomWeather", "Widget refresh failed", e);
+                Store.prefs(app).edit().putBoolean("offline", true).apply();
+            } finally {
+                MAIN.post(() -> {
+                    try {
+                        render(app);
+                    } finally {
+                        pending.finish();
+                    }
+                });
             }
         }, "widget-weather").start();
     }
 
-    /* JADX WARN: Removed duplicated region for block: B:11:0x0025 A[Catch: all -> 0x00ea, Exception -> 0x00ec, TryCatch #0 {Exception -> 0x00ec, blocks: (B:3:0x0008, B:6:0x0015, B:11:0x0025, B:13:0x003e, B:15:0x0051, B:17:0x006a, B:19:0x0081, B:23:0x00d5, B:29:0x008f, B:31:0x0096, B:34:0x00a7, B:36:0x00bc, B:40:0x00a3), top: B:2:0x0008, outer: #1 }] */
-    /* JADX WARN: Removed duplicated region for block: B:36:0x00bc A[Catch: all -> 0x00ea, Exception -> 0x00ec, TryCatch #0 {Exception -> 0x00ec, blocks: (B:3:0x0008, B:6:0x0015, B:11:0x0025, B:13:0x003e, B:15:0x0051, B:17:0x006a, B:19:0x0081, B:23:0x00d5, B:29:0x008f, B:31:0x0096, B:34:0x00a7, B:36:0x00bc, B:40:0x00a3), top: B:2:0x0008, outer: #1 }] */
-    /* JADX WARN: Removed duplicated region for block: B:37:0x00cc  */
-    /* JADX WARN: Removed duplicated region for block: B:39:0x00a0  */
-    /* JADX WARN: Removed duplicated region for block: B:40:0x00a3 A[Catch: all -> 0x00ea, Exception -> 0x00ec, TryCatch #0 {Exception -> 0x00ec, blocks: (B:3:0x0008, B:6:0x0015, B:11:0x0025, B:13:0x003e, B:15:0x0051, B:17:0x006a, B:19:0x0081, B:23:0x00d5, B:29:0x008f, B:31:0x0096, B:34:0x00a7, B:36:0x00bc, B:40:0x00a3), top: B:2:0x0008, outer: #1 }] */
-    /* JADX WARN: Removed duplicated region for block: B:44:0x00d3  */
-    /*
-        Code decompiled incorrectly, please refer to instructions dump.
-        To view partially-correct add '--show-bad-code' argument
-    */
-    static /* synthetic */ void lambda$refreshAsync$1(final android.content.Context r27, final android.content.BroadcastReceiver.PendingResult r28) {
-        /*
-            Method dump skipped, instructions count: 300
-            To view this dump add '--comments-level debug' option
-        */
-        throw new UnsupportedOperationException("Method not decompiled: vn.linh.doomweather.WeatherWidget.lambda$refreshAsync$1(android.content.Context, android.content.BroadcastReceiver$PendingResult):void");
+    static void requestUpdate(Context c) {
+        c.sendBroadcast(new Intent(c, WeatherWidget.class).setAction(REFRESH));
     }
 
-    static /* synthetic */ void lambda$refreshAsync$0(Context app, BroadcastReceiver.PendingResult pending) {
+    static void syncSingleWidgetTheme(Context c, String theme) {
         try {
-            render(app);
-        } finally {
-            pending.finish();
+            AppWidgetManager manager = AppWidgetManager.getInstance(c);
+            int[] ids = manager.getAppWidgetIds(new ComponentName(c, WeatherWidget.class));
+            if (ids != null && ids.length == 1) {
+                Store.setWidgetTheme(c, ids[0], theme);
+            }
+        } catch (Exception e) {
+            Log.w("DoomWeather", "syncSingleWidgetTheme failed", e);
         }
     }
 
-    static void requestUpdate(Context c) {
-        c.sendBroadcast(new Intent(c, (Class<?>) WeatherWidget.class).setAction(REFRESH));
-    }
-
-    static /* synthetic */ void lambda$render$2() {
-    }
-
     static void render(Context c) {
-        render(c, new Runnable() { // from class: vn.linh.doomweather.WeatherWidget$$ExternalSyntheticLambda1
-            @Override // java.lang.Runnable
-            public final void run() {
-                WeatherWidget.lambda$render$2();
-            }
-        });
+        render(c, () -> {});
     }
 
     static void render(Context c, Runnable done) {
         try {
-            try {
-                AppWidgetManager manager = AppWidgetManager.getInstance(c);
-                int[] ids = manager.getAppWidgetIds(new ComponentName(c, (Class<?>) WeatherWidget.class));
-                int length = ids.length;
-                int i = 0;
-                int i2 = 0;
-                while (i2 < length) {
-                    int id = ids[i2];
-                    Bundle options = manager.getAppWidgetOptions(id);
-                    int width = Math.max(220, Math.min(600, options.getInt("appWidgetMinWidth", 340)));
-                    int height = Math.max(105, Math.min(300, options.getInt("appWidgetMinHeight", 170)));
-                    Bitmap bitmap = WidgetPainter.paint(c, width, height);
-                    RemoteViews views = new RemoteViews(c.getPackageName(), R.layout.weather_widget);
-                    views.setViewVisibility(R.id.placeholder, 8);
-                    views.setViewVisibility(R.id.refresh, 8);
-                    views.setImageViewBitmap(R.id.weather_image, bitmap);
-                    views.setContentDescription(R.id.weather_image, WidgetPainter.description(c));
-                    views.setOnClickPendingIntent(R.id.weather_image, PendingIntent.getActivity(c, i, new Intent(c, (Class<?>) MainActivity.class), 201326592));
-                    views.setOnClickPendingIntent(R.id.refresh, PendingIntent.getBroadcast(c, 1, new Intent(c, (Class<?>) WeatherWidget.class).setAction(REFRESH), 201326592));
-                    manager.updateAppWidget(id, views);
-                    i2++;
-                    i = 0;
-                }
-            } catch (Exception e) {
-                Log.w("DoomWeather", "Widget render failed", e);
+            AppWidgetManager manager = AppWidgetManager.getInstance(c);
+            int[] ids = manager.getAppWidgetIds(new ComponentName(c, WeatherWidget.class));
+            for (int id : ids) {
+                renderOne(c, manager, id);
             }
+        } catch (Exception e) {
+            Log.w("DoomWeather", "Widget render failed", e);
         } finally {
             done.run();
+        }
+    }
+
+    private static void renderOne(Context c, AppWidgetManager manager, int id) {
+        try {
+            Bundle options = manager.getAppWidgetOptions(id);
+            int width = Math.max(220, Math.min(600, options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 340)));
+            int height = Math.max(105, Math.min(300, options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 170)));
+            String theme = Store.getWidgetTheme(c, id);
+
+            Bitmap bitmap = WidgetPainter.paint(c, width, height, theme);
+            RemoteViews views = new RemoteViews(c.getPackageName(), R.layout.weather_widget);
+            views.setViewVisibility(R.id.placeholder, View.GONE);
+            views.setViewVisibility(R.id.refresh, View.GONE);
+            views.setImageViewBitmap(R.id.weather_image, bitmap);
+            views.setContentDescription(R.id.weather_image, WidgetPainter.description(c));
+
+            int piFlags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
+
+            Intent openIntent = new Intent(c, MainActivity.class)
+                .putExtra(EXTRA_THEME, theme)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent openPi = PendingIntent.getActivity(c, id, openIntent, piFlags);
+            views.setOnClickPendingIntent(R.id.weather_image, openPi);
+            views.setOnClickPendingIntent(R.id.tap_open_app, openPi);
+
+            Intent nextThemeIntent = new Intent(c, WeatherWidget.class)
+                .setAction(NEXT_THEME)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id);
+            PendingIntent nextThemePi = PendingIntent.getBroadcast(c, 10000 + id, nextThemeIntent, piFlags);
+            views.setOnClickPendingIntent(R.id.tap_next_theme, nextThemePi);
+
+            manager.updateAppWidget(id, views);
+        } catch (Exception e) {
+            Log.w("DoomWeather", "Widget renderOne failed for id=" + id, e);
         }
     }
 }

@@ -2,9 +2,10 @@
 <resources>
     <string name="androidx_startup">androidx.startup</string>
     <string name="open_weather">Thời tiết. Chạm để mở ứng dụng.</string>
+    <string name="switch_theme">Chạm để đổi giao diện widget.</string>
     <string name="refresh_symbol">↻</string>
     <string name="refresh_weather">Cập nhật thời tiết</string>
-    <string name="widget_description">Thời tiết kiểu iPhone với theme xanh, nhiệt độ và sáu giờ dự báo. Chạm để xem chi tiết.</string>
+    <string name="widget_description">Thời tiết kiểu iPhone với nhiều giao diện MCU &amp; Doomsday. Chạm bên phải để đổi giao diện hoặc xếp Ngăn xếp trên Samsung để vuốt trái/phải.</string>
     <string name="widget_placeholder">"Doom Weather
 Chọn thành phố trong ứng dụng"</string>
 </resources>

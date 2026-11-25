@@ -28,9 +28,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import okhttp3.internal.http.HttpStatusCodesKt;
+import android.content.Intent;
 import org.json.JSONObject;
-import vn.linh.doomweather.MainActivity;
 
 /* loaded from: classes3.dex */
 public class MainActivity extends Activity {
@@ -53,80 +52,24 @@ public class MainActivity extends Activity {
         toast("Chưa lấy được vị trí. M có thể chọn thành phố trong ứng dụng.");
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
-    /* JADX WARN: Can't fix incorrect switch cases order, some code will duplicate */
     public static int themeBgColor(String theme) {
-        char c;
-        String normalizeTheme = Store.normalizeTheme(theme);
-        switch (normalizeTheme.hashCode()) {
-            case -1461462798:
-                if (normalizeTheme.equals("mcu_ironman")) {
-                    c = 2;
-                    break;
-                }
-                c = 65535;
-                break;
-            case -1419997771:
-                if (normalizeTheme.equals("mcu_spiderman")) {
-                    c = 3;
-                    break;
-                }
-                c = 65535;
-                break;
-            case -1116717860:
-                if (normalizeTheme.equals("mcu_strange")) {
-                    c = 5;
-                    break;
-                }
-                c = 65535;
-                break;
-            case 107935:
-                if (normalizeTheme.equals("mcu")) {
-                    c = 1;
-                    break;
-                }
-                c = 65535;
-                break;
-            case 3089321:
-                if (normalizeTheme.equals("doom")) {
-                    c = 6;
-                    break;
-                }
-                c = 65535;
-                break;
-            case 1474694658:
-                if (normalizeTheme.equals("wallpaper")) {
-                    c = 0;
-                    break;
-                }
-                c = 65535;
-                break;
-            case 2097221111:
-                if (normalizeTheme.equals("mcu_thor")) {
-                    c = 4;
-                    break;
-                }
-                c = 65535;
-                break;
-            default:
-                c = 65535;
-                break;
-        }
-        switch (c) {
-            case 0:
+        switch (Store.normalizeTheme(theme)) {
+            case "wallpaper":
                 return Color.rgb(91, 71, 194);
-            case 1:
+            case "mcu":
                 return Color.rgb(16, 32, 70);
-            case 2:
+            case "mcu_ironman":
                 return Color.rgb(92, 22, 24);
-            case 3:
-                return Color.rgb(28, 46, HttpStatusCodesKt.HTTP_PROCESSING);
-            case 4:
+            case "mcu_spiderman":
+                return Color.rgb(28, 46, 102);
+            case "mcu_thor":
                 return Color.rgb(18, 52, 92);
-            case 5:
+            case "mcu_strange":
                 return Color.rgb(52, 26, 78);
-            case 6:
+            case "doom":
                 return Color.rgb(15, 59, 40);
+            case "doomsday":
+                return Color.rgb(12, 34, 42);
             default:
                 return Color.rgb(27, 100, 186);
         }
@@ -135,6 +78,10 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        Intent launch = getIntent();
+        if (launch != null && launch.hasExtra(WeatherWidget.EXTRA_THEME)) {
+            Store.setTheme(this, launch.getStringExtra(WeatherWidget.EXTRA_THEME));
+        }
         int bg = themeBgColor(Store.getTheme(this));
         this.root = new LinearLayout(this);
         this.root.setOrientation(1);
@@ -620,7 +567,9 @@ public class MainActivity extends Activity {
         /* JADX INFO: Access modifiers changed from: private */
         public /* synthetic */ void lambda$setTheme$0(String theme) {
             Store.setTheme(MainActivity.this, theme);
-            int bg = MainActivity.themeBgColor(Store.getTheme(MainActivity.this));
+            String normalized = Store.getTheme(MainActivity.this);
+            WeatherWidget.syncSingleWidgetTheme(MainActivity.this, normalized);
+            int bg = MainActivity.themeBgColor(normalized);
             MainActivity.this.root.setBackgroundColor(bg);
             MainActivity.this.web.setBackgroundColor(bg);
             WeatherWidget.render(MainActivity.this);
