@@ -235,31 +235,31 @@ final class WidgetPainter {
         }
 
         // 2. Top-left: City & Current Temp
-        String city = ellipsize(loc.optString("name", "Tokyo"), p, 15.5f, 210.0f);
-        text(canvas, p, city, 18.0f, 30.0f, 15.5f, WHITE, true);
+        String city = ellipsize(loc.optString("name", "Tokyo"), p, 18.5f, 215.0f);
+        text(canvas, p, city, 18.0f, 34.0f, 18.5f, WHITE, true);
 
         if (cur == null) {
-            textThin(canvas, p, "—°", 18.0f, 78.0f, 46.0f, WHITE);
+            textThin(canvas, p, "—°", 17.0f, 82.0f, 46.0f, WHITE);
             boolean offline = Store.prefs(context).getBoolean("offline", false);
             text(canvas, p, offline ? "Không tải được thời tiết. Chạm để thử lại." : "Đang tải thời tiết…",
-                18.0f, 148.0f, 12.5f, 0xE0FFFFFF, false);
+                18.0f, 150.0f, 12.5f, 0xE0FFFFFF, false);
         } else {
             long temp = Math.round(cur.optDouble("temperature_2m"));
-            textThin(canvas, p, temp + "°", 16.0f, 80.0f, 48.0f, WHITE);
+            textThin(canvas, p, temp + "°", 17.0f, 82.0f, 48.0f, WHITE);
 
             // Top-right: Icon, Condition, High/Low
             p.clearShadowLayer();
-            icon(canvas, p, code, isDay, w - 28.0f, 26.0f);
+            icon(canvas, p, code, isDay, w - 27.0f, 27.0f);
             if (artTheme) {
                 p.setShadowLayer(4.0f, 0.0f, 1.2f, 0xB8000000);
             }
-            right(canvas, p, WeatherMath.condition(code), w - 18.0f, 56.0f, 13.0f, WHITE);
+            right(canvas, p, WeatherMath.condition(code), w - 18.0f, 58.0f, 13.5f, WHITE);
             if (daily != null) {
                 JSONArray dMax = daily.optJSONArray("temperature_2m_max");
                 JSONArray dMin = daily.optJSONArray("temperature_2m_min");
                 if (dMax != null && dMin != null && dMax.length() > 0 && dMin.length() > 0) {
                     String hiLo = "C:" + Math.round(dMax.optDouble(0)) + "°  T:" + Math.round(dMin.optDouble(0)) + "°";
-                    right(canvas, p, hiLo, w - 18.0f, 73.0f, 13.0f, 0xF0FFFFFF);
+                    right(canvas, p, hiLo, w - 18.0f, 76.0f, 13.5f, 0xF2FFFFFF);
                 }
             }
 
@@ -276,8 +276,8 @@ final class WidgetPainter {
                     long nowSec = System.currentTimeMillis() / 1000L;
                     int len = Math.min(Math.min(times.length(), temps.length()), Math.min(codes.length(), days.length()));
                     Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                    float startX = 36.0f;
-                    float stepX = (w - 72.0f) / 5.0f;
+                    float startX = 34.0f;
+                    float stepX = (w - 68.0f) / 5.0f;
                     for (int i = 0; i < len && drawn < 6; i++) {
                         long t = times.optLong(i, 0L);
                         if (t < nowSec) {
@@ -286,19 +286,19 @@ final class WidgetPainter {
                         float cx = startX + drawn * stepX;
                         cal.setTimeInMillis((t + utcOffset) * 1000L);
                         String hr = cal.get(Calendar.HOUR_OF_DAY) + "h";
-                        centerText(canvas, p, hr, cx, 114.0f, 11.0f, 0xCCFFFFFF, true);
+                        centerText(canvas, p, hr, cx, 114.0f, 11.5f, 0xD2FFFFFF, true);
                         p.clearShadowLayer();
-                        icon(canvas, p, codes.optInt(i, 0), days.optInt(i, 1) != 0, cx, 132.0f);
+                        icon(canvas, p, codes.optInt(i, 0), days.optInt(i, 1) != 0, cx, 133.0f);
                         if (artTheme) {
                             p.setShadowLayer(4.0f, 0.0f, 1.2f, 0xB8000000);
                         }
-                        centerText(canvas, p, Math.round(temps.optDouble(i)) + "°", cx, 158.0f, 13.5f, WHITE, true);
+                        centerText(canvas, p, Math.round(temps.optDouble(i)) + "°", cx, 160.0f, 14.0f, WHITE, true);
                         drawn++;
                     }
                 }
             }
             if (drawn == 0) {
-                text(canvas, p, "Chưa có dự báo theo giờ", 18.0f, 148.0f, 12.5f, 0xE0FFFFFF, false);
+                text(canvas, p, "Chưa có dự báo theo giờ", 18.0f, 150.0f, 12.5f, 0xE0FFFFFF, false);
             }
         }
 
