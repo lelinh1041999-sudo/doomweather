@@ -7,25 +7,49 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.util.Log;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.json.JSONObject;
 
 final class WeatherClient {
     private static final long FRESH_DELTA_MS = 60_000L;
-    private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
-        .callTimeout(8, TimeUnit.SECONDS)
-        .build();
 
     private WeatherClient() {
+    }
+
+    private static String httpGet(String urlStr, String userAgent) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        try {
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(7000);
+            conn.setInstanceFollowRedirects(true);
+            if (userAgent != null) {
+                conn.setRequestProperty("User-Agent", userAgent);
+            }
+            int code = conn.getResponseCode();
+            if (code < 200 || code >= 300) {
+                throw new IOException("HTTP " + code);
+            }
+            try (InputStream in = conn.getInputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
+                return out.toString(StandardCharsets.UTF_8.name());
+            }
+        } finally {
+            conn.disconnect();
+        }
     }
 
     static JSONObject fetch(JSONObject loc) throws Exception {
@@ -35,19 +59,14 @@ final class WeatherClient {
             + "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset"
             + "&hourly=temperature_2m,weather_code,is_day,precipitation_probability"
             + "&minutely_15=precipitation&timezone=auto&timeformat=unixtime&forecast_days=2";
-        try (Response response = CLIENT.newCall(new Request.Builder().url(url).build()).execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
-                throw new IOException("HTTP " + response.code());
-            }
-            JSONObject data = new JSONObject(response.body().string());
-            JSONObject current = data.getJSONObject("current");
-            if (!Double.isFinite(current.getDouble("temperature_2m"))) {
-                throw new IOException("Thiếu nhiệt độ");
-            }
-            data.getJSONObject("daily").getJSONArray("temperature_2m_max").getDouble(0);
-            data.getJSONObject("daily").getJSONArray("temperature_2m_min").getDouble(0);
-            return data;
+        JSONObject data = new JSONObject(httpGet(url, "DoomWeather/1.2"));
+        JSONObject current = data.getJSONObject("current");
+        if (!Double.isFinite(current.getDouble("temperature_2m"))) {
+            throw new IOException("Thiếu nhiệt độ");
         }
+        data.getJSONObject("daily").getJSONArray("temperature_2m_max").getDouble(0);
+        data.getJSONObject("daily").getJSONArray("temperature_2m_min").getDouble(0);
+        return data;
     }
 
     static Location bestKnownLocation(Context context) {
@@ -107,28 +126,23 @@ final class WeatherClient {
         try {
             String url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + lat
                 + "&lon=" + lon + "&zoom=16&accept-language=ja,vi,en";
-            Request req = new Request.Builder().url(url).header("User-Agent", "DoomWeather/1.2").build();
-            try (Response response = CLIENT.newCall(req).execute()) {
-                if (response.isSuccessful() && response.body() != null) {
-                    JSONObject obj = new JSONObject(response.body().string());
-                    JSONObject addr = obj.optJSONObject("address");
-                    if (addr != null) {
-                        String[] keys = {
-                            "quarter", "neighbourhood", "suburb", "city_district",
-                            "town", "village", "city", "municipality", "county", "state"
-                        };
-                        for (String k : keys) {
-                            String v = cleanAreaName(addr.optString(k, ""));
-                            if (!v.isEmpty()) {
-                                return v;
-                            }
-                        }
-                    }
-                    String top = cleanAreaName(obj.optString("name", ""));
-                    if (!top.isEmpty()) {
-                        return top;
+            JSONObject obj = new JSONObject(httpGet(url, "DoomWeather/1.2"));
+            JSONObject addr = obj.optJSONObject("address");
+            if (addr != null) {
+                String[] keys = {
+                    "quarter", "neighbourhood", "suburb", "city_district",
+                    "town", "village", "city", "municipality", "county", "state"
+                };
+                for (String k : keys) {
+                    String v = cleanAreaName(addr.optString(k, ""));
+                    if (!v.isEmpty()) {
+                        return v;
                     }
                 }
+            }
+            String top = cleanAreaName(obj.optString("name", ""));
+            if (!top.isEmpty()) {
+                return top;
             }
         } catch (Exception e) {
             Log.w("DoomWeather", "Nominatim reverseGeocode failed", e);
