@@ -233,7 +233,7 @@ final class WidgetPainter {
             p.setShadowLayer(2.0f, 0.0f, 1.0f, 0x33000000);
         }
 
-        // 2. Top-left: City & Current Temp (align exact painted left edge to x = 18.0f)
+        // 2. Top-left: City & Current Temp (center short city names directly over the temperature block)
         String city = ellipsize(loc.optString("name", "Tokyo"), p, 18.5f, w * 0.56f);
         Rect cityBounds = new Rect();
         p.setStyle(Paint.Style.FILL);
@@ -241,21 +241,28 @@ final class WidgetPainter {
         p.setLetterSpacing(-0.015f);
         p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         p.getTextBounds(city, 0, city.length(), cityBounds);
-        text(canvas, p, city, 18.0f - cityBounds.left, 34.0f, 18.5f, WHITE, true);
 
         if (cur == null) {
-            textThin(canvas, p, "—°", 18.0f, 82.0f, 46.0f, WHITE);
+            text(canvas, p, city, 18.0f - cityBounds.left, 36.0f, 18.5f, WHITE, true);
+            textThin(canvas, p, "—°", 18.0f, 80.0f, 46.0f, WHITE);
             boolean offline = Store.prefs(context).getBoolean("offline", false);
             text(canvas, p, offline ? "Không tải được thời tiết. Chạm để thử lại." : "Đang tải thời tiết…",
                 18.0f, 150.0f, 12.5f, 0xE0FFFFFF, false);
         } else {
             String tempStr = Math.round(cur.optDouble("temperature_2m")) + "°";
             Rect tempBounds = new Rect();
-            p.setTextSize(48.0f);
+            p.setTextSize(46.0f);
             p.setLetterSpacing(-0.05f);
             p.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
             p.getTextBounds(tempStr, 0, tempStr.length(), tempBounds);
-            textThin(canvas, p, tempStr, 18.0f - tempBounds.left, 82.0f, 48.0f, WHITE);
+
+            float leftEdge = 18.0f;
+            float cityVisualLeft = leftEdge;
+            if (cityBounds.width() < tempBounds.width()) {
+                cityVisualLeft = leftEdge + (tempBounds.width() - cityBounds.width()) / 2.0f;
+            }
+            text(canvas, p, city, cityVisualLeft - cityBounds.left, 36.0f, 18.5f, WHITE, true);
+            textThin(canvas, p, tempStr, leftEdge - tempBounds.left, 80.0f, 46.0f, WHITE);
 
             // Top-right: Icon, Condition, High/Low
             p.clearShadowLayer();

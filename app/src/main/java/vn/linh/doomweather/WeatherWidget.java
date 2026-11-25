@@ -43,6 +43,8 @@ public class WeatherWidget extends AppWidgetProvider {
             } else {
                 render(c.getApplicationContext());
             }
+        } else if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
+            render(c.getApplicationContext());
         } else {
             super.onReceive(c, intent);
         }
