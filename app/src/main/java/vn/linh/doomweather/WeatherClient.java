@@ -6,6 +6,7 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -16,6 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
 final class WeatherClient {
@@ -109,6 +112,51 @@ final class WeatherClient {
             }
         }
         return best;
+    }
+
+    static Location fetchFreshLocation(Context context) {
+        if (context == null) {
+            return null;
+        }
+        boolean hasFine = context.checkSelfPermission("android.permission.ACCESS_FINE_LOCATION") == 0;
+        boolean hasCoarse = context.checkSelfPermission("android.permission.ACCESS_COARSE_LOCATION") == 0;
+        if (!hasFine && !hasCoarse) {
+            return null;
+        }
+        if (Build.VERSION.SDK_INT >= 30) {
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null) {
+                List<String> providers = new ArrayList<>();
+                if (Build.VERSION.SDK_INT >= 31) {
+                    providers.add(LocationManager.FUSED_PROVIDER);
+                }
+                providers.add(LocationManager.GPS_PROVIDER);
+                providers.add(LocationManager.NETWORK_PROVIDER);
+                for (String provider : providers) {
+                    try {
+                        if (!lm.isProviderEnabled(provider)) {
+                            continue;
+                        }
+                        final Location[] result = new Location[1];
+                        final CountDownLatch latch = new CountDownLatch(1);
+                        CancellationSignal signal = new CancellationSignal();
+                        lm.getCurrentLocation(provider, signal, Runnable::run, loc -> {
+                            result[0] = loc;
+                            latch.countDown();
+                        });
+                        if (!latch.await(5, TimeUnit.SECONDS)) {
+                            signal.cancel();
+                        }
+                        if (result[0] != null) {
+                            return result[0];
+                        }
+                    } catch (Exception e) {
+                        Log.w("DoomWeather", "getCurrentLocation failed for " + provider, e);
+                    }
+                }
+            }
+        }
+        return bestKnownLocation(context);
     }
 
     static boolean needsJapaneseUpgrade(String name, double lat, double lon) {

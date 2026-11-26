@@ -15,11 +15,13 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
+import android.widget.Toast;
 import org.json.JSONObject;
 
 public class WeatherWidget extends AppWidgetProvider {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     static final String REFRESH = "vn.linh.doomweather.REFRESH";
+    static final String REFRESH_LOCATION = "vn.linh.doomweather.REFRESH_LOCATION";
     static final String TEST_NOTIF = "vn.linh.doomweather.TEST_NOTIF";
     static final String NEXT_THEME = "vn.linh.doomweather.NEXT_THEME";
     static final String EXTRA_THEME = "theme";
@@ -29,6 +31,8 @@ public class WeatherWidget extends AppWidgetProvider {
         String action = intent == null ? null : intent.getAction();
         if (REFRESH.equals(action)) {
             refreshAsync(c);
+        } else if (REFRESH_LOCATION.equals(action)) {
+            refreshLocationAsync(c);
         } else if (TEST_NOTIF.equals(action)) {
             WeatherNotifier.sendSummaryNow(c.getApplicationContext());
         } else if (NEXT_THEME.equals(action)) {
@@ -68,6 +72,50 @@ public class WeatherWidget extends AppWidgetProvider {
             }
         }
         super.onDeleted(c, appWidgetIds);
+    }
+
+    private void refreshLocationAsync(Context c) {
+        final Context app = c.getApplicationContext();
+        boolean hasFine = app.checkSelfPermission("android.permission.ACCESS_FINE_LOCATION") == 0;
+        boolean hasCoarse = app.checkSelfPermission("android.permission.ACCESS_COARSE_LOCATION") == 0;
+        if (!hasFine && !hasCoarse) {
+            Toast.makeText(app, "Chưa cấp quyền vị trí cho Doom Weather", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(app, "Đang cập nhật vị trí…", Toast.LENGTH_SHORT).show();
+        final BroadcastReceiver.PendingResult pending = goAsync();
+        new Thread(() -> {
+            String toastMsg = null;
+            try {
+                Location fresh = WeatherClient.fetchFreshLocation(app);
+                if (fresh != null && WeatherMath.validLocation(fresh.getLatitude(), fresh.getLongitude())) {
+                    String resolved = WeatherClient.reverseGeocode(app, fresh.getLatitude(), fresh.getLongitude());
+                    String name = (resolved == null || resolved.isEmpty()) ? "Vị trí của tôi" : resolved;
+                    Store.setLocation(app, name, fresh.getLatitude(), fresh.getLongitude(), true);
+                    JSONObject loc = Store.location(app);
+                    JSONObject data = WeatherClient.fetch(loc);
+                    Store.saveWeather(app, loc, data);
+                    toastMsg = "Đã cập nhật: " + name;
+                } else {
+                    toastMsg = "Chưa lấy được vị trí GPS";
+                }
+            } catch (Exception e) {
+                Log.w("DoomWeather", "Widget location refresh failed", e);
+                toastMsg = "Không cập nhật được vị trí";
+            } finally {
+                final String finalMsg = toastMsg;
+                MAIN.post(() -> {
+                    try {
+                        render(app);
+                        if (finalMsg != null) {
+                            Toast.makeText(app, finalMsg, Toast.LENGTH_SHORT).show();
+                        }
+                    } finally {
+                        pending.finish();
+                    }
+                });
+            }
+        }, "widget-location").start();
     }
 
     private void refreshAsync(Context c) {
@@ -169,6 +217,11 @@ public class WeatherWidget extends AppWidgetProvider {
             PendingIntent openPi = PendingIntent.getActivity(c, id, openIntent, piFlags);
             views.setOnClickPendingIntent(R.id.weather_image, openPi);
             views.setOnClickPendingIntent(R.id.tap_open_app, openPi);
+
+            Intent refreshLocIntent = new Intent(c, WeatherWidget.class)
+                .setAction(REFRESH_LOCATION);
+            PendingIntent refreshLocPi = PendingIntent.getBroadcast(c, 20000 + id, refreshLocIntent, piFlags);
+            views.setOnClickPendingIntent(R.id.tap_refresh_location, refreshLocPi);
 
             Intent nextThemeIntent = new Intent(c, WeatherWidget.class)
                 .setAction(NEXT_THEME)

@@ -2,6 +2,7 @@
 <resources>
     <string name="androidx_startup">androidx.startup</string>
     <string name="open_weather">Thời tiết. Chạm để mở ứng dụng.</string>
+    <string name="refresh_location">Chạm để cập nhật vị trí hiện tại.</string>
     <string name="switch_theme">Chạm để đổi giao diện widget.</string>
     <string name="refresh_symbol">↻</string>
     <string name="refresh_weather">Cập nhật thời tiết</string>
