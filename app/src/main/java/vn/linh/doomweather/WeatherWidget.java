@@ -218,9 +218,9 @@ public class WeatherWidget extends AppWidgetProvider {
             views.setOnClickPendingIntent(R.id.weather_image, openPi);
             views.setOnClickPendingIntent(R.id.tap_open_app, openPi);
 
-            Intent refreshLocIntent = new Intent(c, WeatherWidget.class)
-                .setAction(REFRESH_LOCATION);
-            PendingIntent refreshLocPi = PendingIntent.getBroadcast(c, 20000 + id, refreshLocIntent, piFlags);
+            Intent refreshLocIntent = new Intent(c, LocationRefreshActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            PendingIntent refreshLocPi = PendingIntent.getActivity(c, 20000 + id, refreshLocIntent, piFlags);
             views.setOnClickPendingIntent(R.id.tap_refresh_location, refreshLocPi);
 
             Intent nextThemeIntent = new Intent(c, WeatherWidget.class)

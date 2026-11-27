@@ -132,26 +132,44 @@ final class WeatherClient {
                 }
                 providers.add(LocationManager.GPS_PROVIDER);
                 providers.add(LocationManager.NETWORK_PROVIDER);
+
+                final Location[] winner = new Location[1];
+                final CountDownLatch latch = new CountDownLatch(1);
+                List<CancellationSignal> signals = new ArrayList<>();
                 for (String provider : providers) {
                     try {
                         if (!lm.isProviderEnabled(provider)) {
                             continue;
                         }
-                        final Location[] result = new Location[1];
-                        final CountDownLatch latch = new CountDownLatch(1);
                         CancellationSignal signal = new CancellationSignal();
+                        signals.add(signal);
                         lm.getCurrentLocation(provider, signal, Runnable::run, loc -> {
-                            result[0] = loc;
-                            latch.countDown();
+                            if (loc != null && WeatherMath.validLocation(loc.getLatitude(), loc.getLongitude())) {
+                                synchronized (winner) {
+                                    if (winner[0] == null) {
+                                        winner[0] = loc;
+                                        latch.countDown();
+                                    }
+                                }
+                            }
                         });
-                        if (!latch.await(5, TimeUnit.SECONDS)) {
-                            signal.cancel();
-                        }
-                        if (result[0] != null) {
-                            return result[0];
-                        }
                     } catch (Exception e) {
                         Log.w("DoomWeather", "getCurrentLocation failed for " + provider, e);
+                    }
+                }
+                if (!signals.isEmpty()) {
+                    try {
+                        latch.await(4500L, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException ignored) {
+                    }
+                    for (CancellationSignal s : signals) {
+                        try {
+                            s.cancel();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    if (winner[0] != null) {
+                        return winner[0];
                     }
                 }
             }
